@@ -8,7 +8,10 @@
 > Supports layers (floor / prop / actor), multi-cell footprints, rotated grids, and full editor undo.
 > UI strings are in Korean.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 - **엔진**: Unreal Engine 5.7 (에디터 전용 모듈)
+- **라이선스**: MIT — 상업적 사용을 포함해 자유롭게 쓰고 고쳐도 됩니다
 - **의존성**: 엔진 기본 모듈만 사용합니다. 외부 라이브러리 없음
 - **코드**: C++ 약 3,200줄
 
@@ -253,3 +256,12 @@ const FScopedTransaction Transaction(LOCTEXT("PaintTilesTransaction", "2D 맵 �
 `GridYaw`, `Footprint`, 레이어, 충돌 프로파일 승계, 아웃라이너 폴더 승계는
 실제 맵에 적용하면서 필요해진 것들입니다. 특히 회전 격자 지원은 대상 맵이
 45도 돌아간 격자 위에 지어져 있어서 추가했습니다.
+
+---
+
+## 라이선스
+
+[MIT License](LICENSE).
+
+가져다 쓰고, 고치고, 상업 프로젝트에 넣어도 됩니다. 저작권 표시와 라이선스 전문만
+함께 포함해 주세요. 보증은 없습니다.
