@@ -1,0 +1,10 @@
+# Unreal build artifacts
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+*.sln
+*.suo
+*.VC.db
+*.opendb
+.vs/
