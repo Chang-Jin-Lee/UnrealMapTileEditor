@@ -1,3 +1,7 @@
+/*
+* [260909] 원점 기준선(X=0 빨간 세로선, Y=0 초록 가로선) 표시 추가
+*/
+
 #include "SMapTileCanvas.h"
 
 #include "Fonts/SlateFontInfo.h"
@@ -15,6 +19,9 @@ namespace
 
 	constexpr float MinZoom = 0.25f;
 	constexpr float MaxZoom = 6.0f;
+
+	/** 원점 기준선의 두께입니다. 일반 격자선보다 굵게 그려 구분합니다. */
+	constexpr float OriginAxisThickness = 2.0f;
 }
 
 void SMapTileCanvas::Construct(const FArguments& InArgs)
@@ -228,6 +235,35 @@ int32 SMapTileCanvas::OnPaint(
 
 		FSlateDrawElement::MakeLines(
 			OutDrawElements, CurrentLayer, AllottedGeometry.ToPaintGeometry(), Line, ESlateDrawEffect::None, GridColor, false);
+	}
+
+	++CurrentLayer;
+
+	// 원점 기준선입니다. X=0은 상하 방향 빨간선, Y=0은 좌우 방향 초록선으로 그립니다.
+	if (TopLeft.X <= 0 && 0 <= BottomRight.X + 1)
+	{
+		const float LocalX = CellToLocal(FIntPoint(0, 0)).X;
+
+		TArray<FVector2D> Line;
+		Line.Add(FVector2D(LocalX, 0.0f));
+		Line.Add(FVector2D(LocalX, LocalSize.Y));
+
+		FSlateDrawElement::MakeLines(
+			OutDrawElements, CurrentLayer, AllottedGeometry.ToPaintGeometry(), Line, ESlateDrawEffect::None,
+			FLinearColor::Red, true, OriginAxisThickness);
+	}
+
+	if (TopLeft.Y <= 0 && 0 <= BottomRight.Y + 1)
+	{
+		const float LocalY = CellToLocal(FIntPoint(0, 0)).Y;
+
+		TArray<FVector2D> Line;
+		Line.Add(FVector2D(0.0f, LocalY));
+		Line.Add(FVector2D(LocalSize.X, LocalY));
+
+		FSlateDrawElement::MakeLines(
+			OutDrawElements, CurrentLayer, AllottedGeometry.ToPaintGeometry(), Line, ESlateDrawEffect::None,
+			FLinearColor::Green, true, OriginAxisThickness);
 	}
 
 	++CurrentLayer;
