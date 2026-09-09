@@ -1,3 +1,12 @@
+/*
+* [260909] 캔버스 축과 UE 직교 탑뷰 축의 고정 보정각을 분리합니다.
+*/
+
+/**
+ * @brief	맵 타일 격자 모델
+ * @date	2026-09-09
+ */
+
 /**
  *	@brief	그리드 셀과 레벨 액터를 잇는 모델입니다.
  *	@note	툴은 별도 저장본을 두지 않습니다. 레벨 자체가 원본이고 이 모델은 그 투영입니다.
@@ -150,6 +159,12 @@ public:
 	void Clear() { Cells.Reset(); }
 
 private:
+	/** 캔버스의 오른쪽/아래 축을 UE 직교 탑뷰의 오른쪽/아래 축으로 맞춥니다. */
+	static constexpr float CanvasToTopViewYaw = -90.0f;
+
+	/** 격자 좌표를 월드로 바꿀 때만 쓰는 회전입니다. 액터 기본 회전과 분리합니다. */
+	float GetCoordinateYaw() const { return GetGridYaw() + CanvasToTopViewYaw; }
+
 	/** 액터 태그에서 팔레트 타일 식별자를 뽑아냅니다. */
 	static bool ParseTileIdFromActor(const AActor* Actor, FGuid& OutTileId);
 
