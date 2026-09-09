@@ -1,3 +1,12 @@
+/*
+* [260909] 캔버스 좌표 축을 UE 직교 탑뷰 축에 맞춥니다.
+*/
+
+/**
+ * @brief	맵 타일 격자 좌표 변환 구현
+ * @date	2026-09-09
+ */
+
 #include "MapTileGrid.h"
 
 #include "Editor.h"
@@ -34,8 +43,8 @@ float FMapTileGrid::GetGridYaw() const
 
 FVector2D FMapTileGrid::GridToWorldOffset(float GridX, float GridY) const
 {
-	// 격자 축을 GridYaw만큼 돌려 월드 오프셋으로 바꿉니다.
-	const float Rad = FMath::DegreesToRadians(GetGridYaw());
+	// 캔버스 축 보정과 맵 격자 회전을 합쳐 월드 오프셋으로 바꿉니다.
+	const float Rad = FMath::DegreesToRadians(GetCoordinateYaw());
 	const float CosYaw = FMath::Cos(Rad);
 	const float SinYaw = FMath::Sin(Rad);
 
@@ -47,7 +56,7 @@ FVector2D FMapTileGrid::GridToWorldOffset(float GridX, float GridY) const
 FVector2D FMapTileGrid::WorldToGridOffset(float WorldX, float WorldY) const
 {
 	// GridToWorldOffset의 역회전입니다.
-	const float Rad = FMath::DegreesToRadians(-GetGridYaw());
+	const float Rad = FMath::DegreesToRadians(-GetCoordinateYaw());
 	const float CosYaw = FMath::Cos(Rad);
 	const float SinYaw = FMath::Sin(Rad);
 
