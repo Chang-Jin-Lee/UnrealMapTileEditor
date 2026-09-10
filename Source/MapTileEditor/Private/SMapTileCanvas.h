@@ -60,9 +60,11 @@ class SMapTileCanvas : public SCompoundWidget
 public:
 	SLATE_BEGIN_ARGS(SMapTileCanvas)
 		: _BrushMode(EMapTileBrushMode::Single)
+		, _BrushFootprint(FIntPoint(1, 1))
 	{
 	}
 		SLATE_ATTRIBUTE(EMapTileBrushMode, BrushMode)
+		SLATE_ATTRIBUTE(FIntPoint, BrushFootprint)
 		SLATE_EVENT(FGetMapTileCellVisual, OnGetCellVisual)
 		SLATE_EVENT(FOnMapTileCellsPainted, OnCellsPainted)
 		SLATE_EVENT(FOnMapTileCellsErased, OnCellsErased)
@@ -115,6 +117,9 @@ private:
 
 private:
 	TAttribute<EMapTileBrushMode> BrushMode;
+
+	/** 현재 선택된 타일의 점유 칸 크기입니다. 호버 하이라이트를 이 크기로 그립니다. */
+	TAttribute<FIntPoint> BrushFootprint;
 
 	FGetMapTileCellVisual OnGetCellVisual;
 	FOnMapTileCellsPainted OnCellsPainted;
