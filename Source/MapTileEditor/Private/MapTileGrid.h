@@ -124,10 +124,12 @@ public:
 
 	/**
 	 * 한 배치를 놓습니다. Cell은 점유 영역의 좌상단이 됩니다.
-	 * 같은 레이어에서 겹치는 기존 배치는 먼저 지웁니다.
-	 * @param bKeepExistingHeight	겹친 기존 배치가 있던 Z를 그대로 재사용할지 여부입니다.
+	 * 같은 레이어에서 점유 영역이 기존 배치와 하나라도 겹치면 아무것도 바꾸지 않고 false를 돌려줍니다.
 	 */
-	bool PaintCell(UWorld* World, const FIntPoint& Cell, int32 TileIndex, float BrushYaw, bool bKeepExistingHeight);
+	bool PaintCell(UWorld* World, const FIntPoint& Cell, int32 TileIndex, float BrushYaw);
+
+	/** 점유 영역이 해당 레이어의 기존 배치와 하나도 겹치지 않으면 true를 돌려줍니다. */
+	bool IsFootprintClear(const FIntPoint& Origin, const FIntPoint& Footprint, EMapTileLayer Layer) const;
 
 	/** 지정한 레이어의 배치를 지웁니다. 덮인 칸 전체가 함께 비워집니다. */
 	bool EraseLayer(const FIntPoint& Cell, EMapTileLayer Layer);
@@ -148,6 +150,13 @@ public:
 
 	/** 모델만 비웁니다. 레벨 액터는 건드리지 않습니다. */
 	void Clear() { Cells.Reset(); }
+
+	/**
+	 * 팔레트에 정의된 Footprint를 배치 Yaw만큼 돌린 값을 돌려줍니다.
+	 * 90도 단위로만 의미가 있습니다. 90·270도(4로 나눈 나머지가 홀수)면 X·Y를 맞바꾸고,
+	 * 0·180도면 그대로 둡니다. 90도 단위가 아닌 값은 가장 가까운 90도로 반올림해 처리합니다.
+	 */
+	static FIntPoint RotateFootprint(const FIntPoint& Footprint, float Yaw);
 
 private:
 	/** 액터 태그에서 팔레트 타일 식별자를 뽑아냅니다. */

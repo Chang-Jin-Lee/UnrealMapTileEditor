@@ -27,6 +27,7 @@ void SMapTileCanvas::Construct(const FArguments& InArgs)
 	OnCellPicked = InArgs._OnCellPicked;
 	OnCellFocused = InArgs._OnCellFocused;
 	OnRotateBrush = InArgs._OnRotateBrush;
+	CanPlaceRange = InArgs._CanPlaceRange;
 }
 
 FIntPoint SMapTileCanvas::LocalToCell(const FVector2D& LocalPosition) const
@@ -279,11 +280,13 @@ int32 SMapTileCanvas::OnPaint(
 		++CurrentLayer;
 	}
 
-	// 직사각형 모드로 드래그하는 동안의 미리보기입니다.
+	// 직사각형 모드로 드래그하는 동안의 미리보기입니다. 범위 안에 이미 채워진 칸이 있으면 붉은색으로 경고합니다.
 	if (bPainting && bHasHoveredCell && BrushMode.Get() == EMapTileBrushMode::Rectangle)
 	{
 		const FIntPoint Min(FMath::Min(StrokeStartCell.X, HoveredCell.X), FMath::Min(StrokeStartCell.Y, HoveredCell.Y));
 		const FIntPoint Max(FMath::Max(StrokeStartCell.X, HoveredCell.X), FMath::Max(StrokeStartCell.Y, HoveredCell.Y));
+
+		const bool bCanPlace = !CanPlaceRange.IsBound() || CanPlaceRange.Execute(Min, Max);
 
 		const FVector2D PreviewTopLeft = CellToLocal(Min);
 		const FVector2D PreviewSize(
@@ -296,13 +299,14 @@ int32 SMapTileCanvas::OnPaint(
 			AllottedGeometry.ToPaintGeometry(FVector2f(PreviewSize), FSlateLayoutTransform(FVector2f(PreviewTopLeft))),
 			WhiteBrush,
 			ESlateDrawEffect::None,
-			FLinearColor(0.2f, 0.7f, 1.0f, 0.25f));
+			bCanPlace ? FLinearColor(0.2f, 0.7f, 1.0f, 0.25f) : FLinearColor(0.9f, 0.15f, 0.15f, 0.3f));
 
 		++CurrentLayer;
 	}
 
 	// 커서가 올라간 칸을 강조합니다. 한 칸 브러시일 때는 선택된 타일의 점유 칸(Footprint) 크기로 그려,
 	// 여러 칸을 차지하는 타일을 놓을 위치를 미리 확인할 수 있게 합니다.
+	// 그 범위에 이미 채워진 칸이 있으면 붉은색으로 경고합니다.
 	if (bHasHoveredCell)
 	{
 		FIntPoint Footprint(1, 1);
@@ -311,6 +315,9 @@ int32 SMapTileCanvas::OnPaint(
 			const FIntPoint RawFootprint = BrushFootprint.Get(FIntPoint(1, 1));
 			Footprint = FIntPoint(FMath::Max(1, RawFootprint.X), FMath::Max(1, RawFootprint.Y));
 		}
+
+		const FIntPoint HoverMax = HoveredCell + Footprint - FIntPoint(1, 1);
+		const bool bCanPlace = !CanPlaceRange.IsBound() || CanPlaceRange.Execute(HoveredCell, HoverMax);
 
 		const FVector2D HoverTopLeft = CellToLocal(HoveredCell);
 		const FVector2D HoverSize(Footprint.X * CellPixels, Footprint.Y * CellPixels);
@@ -322,7 +329,7 @@ int32 SMapTileCanvas::OnPaint(
 				FVector2f(HoverSize), FSlateLayoutTransform(FVector2f(HoverTopLeft))),
 			WhiteBrush,
 			ESlateDrawEffect::None,
-			FLinearColor(0.3f, 0.9f, 0.9f, 0.20f));
+			bCanPlace ? FLinearColor(0.3f, 0.9f, 0.9f, 0.20f) : FLinearColor(0.9f, 0.15f, 0.15f, 0.25f));
 
 		++CurrentLayer;
 	}
