@@ -91,6 +91,7 @@ void SMapTileEditorWidget::Construct(const FArguments& InArgs)
 					SAssignNew(Canvas, SMapTileCanvas)
 					.BrushMode(this, &SMapTileEditorWidget::GetBrushModeForCanvas)
 					.BrushFootprint(this, &SMapTileEditorWidget::GetBrushFootprintForCanvas)
+					.CanPlaceRange(this, &SMapTileEditorWidget::CanPlaceRange)
 					.OnGetCellVisual(this, &SMapTileEditorWidget::GetCellVisual)
 					.OnCellsPainted(this, &SMapTileEditorWidget::HandleCellsPainted)
 					.OnCellsErased(this, &SMapTileEditorWidget::HandleCellsErased)
@@ -594,22 +595,6 @@ TSharedRef<SWidget> SMapTileEditorWidget::BuildSettingsPanel()
 
 				+ SVerticalBox::Slot()
 				.AutoHeight()
-				.Padding(0.0f, 0.0f, 0.0f, 4.0f)
-				[
-					SNew(SCheckBox)
-					.IsChecked_Lambda(
-						[this]() { return bKeepExistingHeight ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })
-					.OnCheckStateChanged_Lambda(
-						[this](ECheckBoxState NewState) { bKeepExistingHeight = (NewState == ECheckBoxState::Checked); })
-					.ToolTipText(LOCTEXT(
-						"KeepHeightTip", "이미 타일이 있던 칸을 다시 칠할 때 그 칸의 Z를 그대로 물려받습니다."))
-					[
-						SNew(STextBlock).Text(LOCTEXT("KeepExistingHeight", "기존 밑면 높이 유지"))
-					]
-				]
-
-				+ SVerticalBox::Slot()
-				.AutoHeight()
 				.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 				[
 					SNew(SCheckBox)
@@ -874,7 +859,21 @@ FIntPoint SMapTileEditorWidget::GetBrushFootprintForCanvas() const
 {
 	const FMapTileDef* Def = GetSelectedTileDef();
 
-	return Def ? Def->GetClampedFootprint() : FIntPoint(1, 1);
+	return Def ? FMapTileGrid::RotateFootprint(Def->GetClampedFootprint(), BrushYaw) : FIntPoint(1, 1);
+}
+
+bool SMapTileEditorWidget::CanPlaceRange(FIntPoint Min, FIntPoint Max) const
+{
+	const FMapTileDef* Def = GetSelectedTileDef();
+	if (!Def)
+	{
+		return true;
+	}
+
+	const FIntPoint Origin(FMath::Min(Min.X, Max.X), FMath::Min(Min.Y, Max.Y));
+	const FIntPoint Footprint(FMath::Abs(Max.X - Min.X) + 1, FMath::Abs(Max.Y - Min.Y) + 1);
+
+	return Grid.IsFootprintClear(Origin, Footprint, Def->Layer);
 }
 
 ECheckBoxState SMapTileEditorWidget::IsBrushModeChecked(EMapTileBrushMode Mode) const
@@ -1090,13 +1089,28 @@ void SMapTileEditorWidget::HandleCellsPainted(const TArray<FIntPoint>& Cells)
 		return;
 	}
 
+	const FMapTileDef& Def = Pal->Tiles[SelectedTileIndex];
+	const FIntPoint Footprint = FMapTileGrid::RotateFootprint(Def.GetClampedFootprint(), BrushYaw);
+
+	// 범위 안 어디든 하나라도 기존 배치와 겹치면 스트로크 전체를 거부합니다.
+	// 겹친 칸만 건너뛰면 여러 칸짜리 배치의 격자 크기가 어긋납니다.
+	for (const FIntPoint& Cell : Cells)
+	{
+		if (!Grid.IsFootprintClear(Cell, Footprint, Def.Layer))
+		{
+			StatusText = LOCTEXT("PaintBlocked", "범위 안에 이미 채워진 칸이 있어 칠할 수 없습니다.");
+
+			return;
+		}
+	}
+
 	// 스트로크 하나가 트랜잭션 하나가 되어 Ctrl+Z 한 번에 통째로 되돌아갑니다.
 	const FScopedTransaction Transaction(LOCTEXT("PaintTilesTransaction", "2D 맵 타일 칠하기"));
 
 	int32 PaintedCount = 0;
 	for (const FIntPoint& Cell : Cells)
 	{
-		if (Grid.PaintCell(World, Cell, SelectedTileIndex, BrushYaw, bKeepExistingHeight))
+		if (Grid.PaintCell(World, Cell, SelectedTileIndex, BrushYaw))
 		{
 			++PaintedCount;
 		}
