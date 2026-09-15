@@ -88,6 +88,8 @@ private:
 	FMapTileDef* GetSelectedTileDef() const;
 	/** 캔버스에 현재 브러시 모드를 넘겨주는 어트리뷰트 게터입니다. */
 	EMapTileBrushMode GetBrushModeForCanvas() const;
+	/** 캔버스에 현재 선택된 타일의 점유 칸(Footprint)을 넘겨주는 어트리뷰트 게터입니다. */
+	FIntPoint GetBrushFootprintForCanvas() const;
 	ECheckBoxState IsBrushModeChecked(EMapTileBrushMode Mode) const;
 	void OnBrushModeChanged(ECheckBoxState NewState, EMapTileBrushMode Mode);
 	TOptional<float> GetCellSize() const;

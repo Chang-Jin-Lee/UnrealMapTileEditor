@@ -27,6 +27,7 @@ namespace
 void SMapTileCanvas::Construct(const FArguments& InArgs)
 {
 	BrushMode = InArgs._BrushMode;
+	BrushFootprint = InArgs._BrushFootprint;
 	OnGetCellVisual = InArgs._OnGetCellVisual;
 	OnCellsPainted = InArgs._OnCellsPainted;
 	OnCellsErased = InArgs._OnCellsErased;
@@ -336,16 +337,25 @@ int32 SMapTileCanvas::OnPaint(
 		++CurrentLayer;
 	}
 
-	// 커서가 올라간 칸을 강조합니다.
+	// 커서가 올라간 칸을 강조합니다. 한 칸 브러시일 때는 선택된 타일의 점유 칸(Footprint) 크기로 그려,
+	// 여러 칸을 차지하는 타일을 놓을 위치를 미리 확인할 수 있게 합니다.
 	if (bHasHoveredCell)
 	{
+		FIntPoint Footprint(1, 1);
+		if (BrushMode.Get() == EMapTileBrushMode::Single)
+		{
+			const FIntPoint RawFootprint = BrushFootprint.Get(FIntPoint(1, 1));
+			Footprint = FIntPoint(FMath::Max(1, RawFootprint.X), FMath::Max(1, RawFootprint.Y));
+		}
+
 		const FVector2D HoverTopLeft = CellToLocal(HoveredCell);
+		const FVector2D HoverSize(Footprint.X * CellPixels, Footprint.Y * CellPixels);
 
 		FSlateDrawElement::MakeBox(
 			OutDrawElements,
 			CurrentLayer,
 			AllottedGeometry.ToPaintGeometry(
-				FVector2f(CellPixels, CellPixels), FSlateLayoutTransform(FVector2f(HoverTopLeft))),
+				FVector2f(HoverSize), FSlateLayoutTransform(FVector2f(HoverTopLeft))),
 			WhiteBrush,
 			ESlateDrawEffect::None,
 			FLinearColor(0.3f, 0.9f, 0.9f, 0.20f));

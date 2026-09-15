@@ -90,6 +90,7 @@ void SMapTileEditorWidget::Construct(const FArguments& InArgs)
 				[
 					SAssignNew(Canvas, SMapTileCanvas)
 					.BrushMode(this, &SMapTileEditorWidget::GetBrushModeForCanvas)
+					.BrushFootprint(this, &SMapTileEditorWidget::GetBrushFootprintForCanvas)
 					.OnGetCellVisual(this, &SMapTileEditorWidget::GetCellVisual)
 					.OnCellsPainted(this, &SMapTileEditorWidget::HandleCellsPainted)
 					.OnCellsErased(this, &SMapTileEditorWidget::HandleCellsErased)
@@ -867,6 +868,13 @@ void SMapTileEditorWidget::OnSelectedFootprintChanged(int32 NewValue, bool bAxis
 EMapTileBrushMode SMapTileEditorWidget::GetBrushModeForCanvas() const
 {
 	return BrushMode;
+}
+
+FIntPoint SMapTileEditorWidget::GetBrushFootprintForCanvas() const
+{
+	const FMapTileDef* Def = GetSelectedTileDef();
+
+	return Def ? Def->GetClampedFootprint() : FIntPoint(1, 1);
 }
 
 ECheckBoxState SMapTileEditorWidget::IsBrushModeChecked(EMapTileBrushMode Mode) const
