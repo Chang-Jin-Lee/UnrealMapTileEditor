@@ -1,6 +1,6 @@
 /*
+* [260909] 캔버스 축과 UE 직교 탑뷰 축의 고정 보정각을 분리합니다.
 * [260916] 스캔된 셀 위치를 기준으로 툴 소유 타일을 수동 보정합니다.
-* @date 2026-09-16
 */
 
 /**
@@ -167,6 +167,12 @@ public:
 	static FIntPoint RotateFootprint(const FIntPoint& Footprint, float Yaw);
 
 private:
+	/** 캔버스의 오른쪽/아래 축을 UE 직교 탑뷰의 오른쪽/아래 축으로 맞춥니다. */
+	static constexpr float CanvasToTopViewYaw = -90.0f;
+
+	/** 격자 좌표를 월드로 바꿀 때만 쓰는 회전입니다. 액터 기본 회전과 분리합니다. */
+	float GetCoordinateYaw() const { return GetGridYaw() + CanvasToTopViewYaw; }
+
 	/** 액터 태그에서 팔레트 타일 식별자를 뽑아냅니다. */
 	static bool ParseTileIdFromActor(const AActor* Actor, FGuid& OutTileId);
 
