@@ -1,3 +1,8 @@
+/*
+* [260916] 스캔된 셀 위치를 기준으로 툴 소유 타일을 수동 보정합니다.
+* @date 2026-09-16
+*/
+
 #include "MapTileGrid.h"
 
 #include "Editor.h"
@@ -290,6 +295,58 @@ int32 FMapTileGrid::RefreshFromLevel(UWorld* World)
 	}
 
 	return PlacementCount;
+}
+
+void FMapTileGrid::CorrectTIlesFromTool(UWorld* World)
+{
+	UMapTilePalette* Pal = Palette.Get();
+	if (!World || !Pal)
+	{
+		return;
+	}
+
+	TSet<AActor*> CorrectedActors;
+
+	for (const TPair<FIntPoint, FMapTileCellStack>& Pair : Cells)
+	{
+		const FIntPoint& Cell = Pair.Key;
+		const FMapTileCellStack& Stack = Pair.Value;
+
+		for (int32 LayerIndex = 0; LayerIndex < MapTileLayerCount; ++LayerIndex)
+		{
+			const FMapTileCell& Entry = Stack.Layers[LayerIndex];
+			if (!Entry.bOccupied || Entry.bFixed || !Entry.IsOrigin(Cell))
+			{
+				continue;
+			}
+
+			AActor* Actor = Entry.Actor.Get();
+			if (!IsValid(Actor) || !Actor->Tags.Contains(MapTileTags::Owned) || CorrectedActors.Contains(Actor))
+			{
+				continue;
+			}
+
+			CorrectedActors.Add(Actor);
+
+			const int32 TileIndex = Pal->FindTileIndexById(Entry.TileId);
+			if (!Pal->Tiles.IsValidIndex(TileIndex))
+			{
+				continue;
+			}
+
+			const FMapTileDef& Def = Pal->Tiles[TileIndex];
+			const FVector CorrectLocation = FootprintCenterToWorld(Entry.Origin, Entry.Footprint) + Def.PlacementOffset;
+			if (Actor->GetActorLocation().Equals(CorrectLocation, KINDA_SMALL_NUMBER))
+			{
+				continue;
+			}
+
+			Actor->Modify();
+			Actor->SetActorLocation(CorrectLocation);
+			Actor->PostEditMove(true);
+			Actor->MarkPackageDirty();
+		}
+	}
 }
 
 AActor* FMapTileGrid::SpawnTileActor(
