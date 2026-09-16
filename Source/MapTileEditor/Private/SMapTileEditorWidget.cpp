@@ -1,3 +1,8 @@
+/*
+* [260916] 타일 위치 보정 버튼과 수동 보정 흐름을 추가합니다.
+* @date 2026-09-16
+*/
+
 #include "SMapTileEditorWidget.h"
 
 #include "MapTilePalette.h"
@@ -91,6 +96,7 @@ void SMapTileEditorWidget::Construct(const FArguments& InArgs)
 					SAssignNew(Canvas, SMapTileCanvas)
 					.BrushMode(this, &SMapTileEditorWidget::GetBrushModeForCanvas)
 					.BrushFootprint(this, &SMapTileEditorWidget::GetBrushFootprintForCanvas)
+					.CanPlaceRange(this, &SMapTileEditorWidget::CanPlaceRange)
 					.OnGetCellVisual(this, &SMapTileEditorWidget::GetCellVisual)
 					.OnCellsPainted(this, &SMapTileEditorWidget::HandleCellsPainted)
 					.OnCellsErased(this, &SMapTileEditorWidget::HandleCellsErased)
@@ -182,6 +188,16 @@ TSharedRef<SWidget> SMapTileEditorWidget::BuildToolbar()
 		.Padding(4.0f, 0.0f, 0.0f, 0.0f)
 		[
 			SNew(SButton)
+			.Text(LOCTEXT("CorrectLevel", "타일 보정"))
+			.ToolTipText(LOCTEXT("CorrectLevelTip", "현재 툴의 그리드 위치와 실제 타일 위치를 일치시킵니다."))
+			.OnClicked(this, &SMapTileEditorWidget::OnCorrectLevelClicked)
+		]
+
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(4.0f, 0.0f, 0.0f, 0.0f)
+		[
+			SNew(SButton)
 			.Text(LOCTEXT("ViewAll", "전체 보기"))
 			.ToolTipText(LOCTEXT("ViewAllTip", "배치된 타일이 모두 보이도록 캔버스를 맞춥니다."))
 			.OnClicked(this, &SMapTileEditorWidget::OnViewAllClicked)
@@ -230,6 +246,13 @@ FReply SMapTileEditorWidget::OnCreateNewPaletteClicked()
 FReply SMapTileEditorWidget::OnRefreshLevelClicked()
 {
 	RefreshFromLevel();
+
+	return FReply::Handled();
+}
+
+FReply SMapTileEditorWidget::OnCorrectLevelClicked()
+{
+	CorrectFromLevel();
 
 	return FReply::Handled();
 }
@@ -594,22 +617,6 @@ TSharedRef<SWidget> SMapTileEditorWidget::BuildSettingsPanel()
 
 				+ SVerticalBox::Slot()
 				.AutoHeight()
-				.Padding(0.0f, 0.0f, 0.0f, 4.0f)
-				[
-					SNew(SCheckBox)
-					.IsChecked_Lambda(
-						[this]() { return bKeepExistingHeight ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })
-					.OnCheckStateChanged_Lambda(
-						[this](ECheckBoxState NewState) { bKeepExistingHeight = (NewState == ECheckBoxState::Checked); })
-					.ToolTipText(LOCTEXT(
-						"KeepHeightTip", "이미 타일이 있던 칸을 다시 칠할 때 그 칸의 Z를 그대로 물려받습니다."))
-					[
-						SNew(STextBlock).Text(LOCTEXT("KeepExistingHeight", "기존 밑면 높이 유지"))
-					]
-				]
-
-				+ SVerticalBox::Slot()
-				.AutoHeight()
 				.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 				[
 					SNew(SCheckBox)
@@ -874,7 +881,21 @@ FIntPoint SMapTileEditorWidget::GetBrushFootprintForCanvas() const
 {
 	const FMapTileDef* Def = GetSelectedTileDef();
 
-	return Def ? Def->GetClampedFootprint() : FIntPoint(1, 1);
+	return Def ? FMapTileGrid::RotateFootprint(Def->GetClampedFootprint(), BrushYaw) : FIntPoint(1, 1);
+}
+
+bool SMapTileEditorWidget::CanPlaceRange(FIntPoint Min, FIntPoint Max) const
+{
+	const FMapTileDef* Def = GetSelectedTileDef();
+	if (!Def)
+	{
+		return true;
+	}
+
+	const FIntPoint Origin(FMath::Min(Min.X, Max.X), FMath::Min(Min.Y, Max.Y));
+	const FIntPoint Footprint(FMath::Abs(Max.X - Min.X) + 1, FMath::Abs(Max.Y - Min.Y) + 1);
+
+	return Grid.IsFootprintClear(Origin, Footprint, Def->Layer);
 }
 
 ECheckBoxState SMapTileEditorWidget::IsBrushModeChecked(EMapTileBrushMode Mode) const
@@ -1090,13 +1111,28 @@ void SMapTileEditorWidget::HandleCellsPainted(const TArray<FIntPoint>& Cells)
 		return;
 	}
 
+	const FMapTileDef& Def = Pal->Tiles[SelectedTileIndex];
+	const FIntPoint Footprint = FMapTileGrid::RotateFootprint(Def.GetClampedFootprint(), BrushYaw);
+
+	// 범위 안 어디든 하나라도 기존 배치와 겹치면 스트로크 전체를 거부합니다.
+	// 겹친 칸만 건너뛰면 여러 칸짜리 배치의 격자 크기가 어긋납니다.
+	for (const FIntPoint& Cell : Cells)
+	{
+		if (!Grid.IsFootprintClear(Cell, Footprint, Def.Layer))
+		{
+			StatusText = LOCTEXT("PaintBlocked", "범위 안에 이미 채워진 칸이 있어 칠할 수 없습니다.");
+
+			return;
+		}
+	}
+
 	// 스트로크 하나가 트랜잭션 하나가 되어 Ctrl+Z 한 번에 통째로 되돌아갑니다.
 	const FScopedTransaction Transaction(LOCTEXT("PaintTilesTransaction", "2D 맵 타일 칠하기"));
 
 	int32 PaintedCount = 0;
 	for (const FIntPoint& Cell : Cells)
 	{
-		if (Grid.PaintCell(World, Cell, SelectedTileIndex, BrushYaw, bKeepExistingHeight))
+		if (Grid.PaintCell(World, Cell, SelectedTileIndex, BrushYaw))
 		{
 			++PaintedCount;
 		}
@@ -1216,6 +1252,30 @@ void SMapTileEditorWidget::RefreshFromLevel()
 
 	StatusText = FText::Format(
 		LOCTEXT("LoadedTiles", "현재 레벨의 고정 바닥 타일 {0}개를 불러왔습니다."), FText::AsNumber(LoadedCount));
+}
+
+void SMapTileEditorWidget::CorrectFromLevel()
+{
+	if (!Palette.IsValid())
+	{
+		Grid.Clear();
+		StatusText = LOCTEXT("NoPaletteStatus", "타일 팔레트를 선택하거나 새로 만드세요.");
+
+		return;
+	}
+
+	UWorld* World = GetEditorWorld();
+	if (!World)
+	{
+		Grid.Clear();
+		StatusText = LOCTEXT("NoWorld", "편집 중인 레벨을 찾지 못했습니다.");
+
+		return;
+	}
+
+	const FScopedTransaction Transaction(LOCTEXT("CorrectTilesFromToolTransaction", "맵 타일 위치 보정"));
+	Grid.CorrectTIlesFromTool(World);
+	StatusText = LOCTEXT("CorrectTiles", "현재 레벨의 툴 소유 타일 위치를 보정했습니다.");
 }
 
 void SMapTileEditorWidget::MoveViewportToCell(const FIntPoint& Cell) const

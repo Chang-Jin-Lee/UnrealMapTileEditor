@@ -1,11 +1,7 @@
 /*
 * [260909] 캔버스 축과 UE 직교 탑뷰 축의 고정 보정각을 분리합니다.
+* [260916] 스캔된 셀 위치를 기준으로 툴 소유 타일을 수동 보정합니다.
 */
-
-/**
- * @brief	맵 타일 격자 모델
- * @date	2026-09-09
- */
 
 /**
  *	@brief	그리드 셀과 레벨 액터를 잇는 모델입니다.
@@ -131,12 +127,17 @@ public:
 	/** 현재 레벨을 훑어 그리드를 다시 만듭니다. 읽어들인 배치 수를 돌려줍니다. */
 	int32 RefreshFromLevel(UWorld* World);
 
+	/** 레벨 스캔으로 저장된 셀 좌표를 기준으로 툴 소유 타일을 각자 올바른 월드 위치로 옮깁니다. */
+	void CorrectTIlesFromTool(UWorld* World);
+
 	/**
 	 * 한 배치를 놓습니다. Cell은 점유 영역의 좌상단이 됩니다.
-	 * 같은 레이어에서 겹치는 기존 배치는 먼저 지웁니다.
-	 * @param bKeepExistingHeight	겹친 기존 배치가 있던 Z를 그대로 재사용할지 여부입니다.
+	 * 같은 레이어에서 점유 영역이 기존 배치와 하나라도 겹치면 아무것도 바꾸지 않고 false를 돌려줍니다.
 	 */
-	bool PaintCell(UWorld* World, const FIntPoint& Cell, int32 TileIndex, float BrushYaw, bool bKeepExistingHeight);
+	bool PaintCell(UWorld* World, const FIntPoint& Cell, int32 TileIndex, float BrushYaw);
+
+	/** 점유 영역이 해당 레이어의 기존 배치와 하나도 겹치지 않으면 true를 돌려줍니다. */
+	bool IsFootprintClear(const FIntPoint& Origin, const FIntPoint& Footprint, EMapTileLayer Layer) const;
 
 	/** 지정한 레이어의 배치를 지웁니다. 덮인 칸 전체가 함께 비워집니다. */
 	bool EraseLayer(const FIntPoint& Cell, EMapTileLayer Layer);
@@ -157,6 +158,13 @@ public:
 
 	/** 모델만 비웁니다. 레벨 액터는 건드리지 않습니다. */
 	void Clear() { Cells.Reset(); }
+
+	/**
+	 * 팔레트에 정의된 Footprint를 배치 Yaw만큼 돌린 값을 돌려줍니다.
+	 * 90도 단위로만 의미가 있습니다. 90·270도(4로 나눈 나머지가 홀수)면 X·Y를 맞바꾸고,
+	 * 0·180도면 그대로 둡니다. 90도 단위가 아닌 값은 가장 가까운 90도로 반올림해 처리합니다.
+	 */
+	static FIntPoint RotateFootprint(const FIntPoint& Footprint, float Yaw);
 
 private:
 	/** 캔버스의 오른쪽/아래 축을 UE 직교 탑뷰의 오른쪽/아래 축으로 맞춥니다. */

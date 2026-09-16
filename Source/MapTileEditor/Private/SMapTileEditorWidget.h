@@ -1,3 +1,8 @@
+/*
+* [260916] 타일 위치 보정 버튼과 수동 보정 흐름을 추가합니다.
+* @date 2026-09-16
+*/
+
 /**
  *	@brief	맵 타일 편집기의 메인 위젯입니다. 툴바·팔레트·캔버스·배치 설정을 조립합니다.
  */
@@ -56,6 +61,7 @@ private:
 	void OnPaletteChanged(const FAssetData& AssetData);
 	FReply OnCreateNewPaletteClicked();
 	FReply OnRefreshLevelClicked();
+	FReply OnCorrectLevelClicked();
 	FReply OnViewAllClicked();
 
 	//~ 좌측 팔레트 패널
@@ -90,6 +96,8 @@ private:
 	EMapTileBrushMode GetBrushModeForCanvas() const;
 	/** 캔버스에 현재 선택된 타일의 점유 칸(Footprint)을 넘겨주는 어트리뷰트 게터입니다. */
 	FIntPoint GetBrushFootprintForCanvas() const;
+	/** 캔버스가 호버·드래그 범위 미리보기 색을 정할 때 묻는 콜백입니다. 범위가 비어 있으면 놓을 수 있습니다. */
+	bool CanPlaceRange(FIntPoint Min, FIntPoint Max) const;
 	ECheckBoxState IsBrushModeChecked(EMapTileBrushMode Mode) const;
 	void OnBrushModeChanged(ECheckBoxState NewState, EMapTileBrushMode Mode);
 	TOptional<float> GetCellSize() const;
@@ -117,6 +125,9 @@ private:
 
 	/** 레벨을 다시 스캔하고 상태 문구를 갱신합니다. */
 	void RefreshFromLevel();
+
+	/** 현재 툴이 저장한 그리드 위치로 툴 소유 타일을 수동 보정합니다. */
+	void CorrectFromLevel();
 
 	/** 지정한 셀이 화면 중앙에 오도록 레벨 뷰포트 카메라를 옮깁니다. 각도는 유지합니다. */
 	void MoveViewportToCell(const FIntPoint& Cell) const;
@@ -146,8 +157,6 @@ private:
 	EMapTileBrushMode BrushMode = EMapTileBrushMode::Single;
 
 	float BrushYaw = 0.0f;
-
-	bool bKeepExistingHeight = true;
 
 	bool bLockViewportToSelection = false;
 
