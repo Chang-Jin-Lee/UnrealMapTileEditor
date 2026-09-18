@@ -94,10 +94,6 @@ struct FMapTileDef
 	UPROPERTY(EditAnywhere, Category = "Transform")
 	FVector PlacementOffset = FVector::ZeroVector;
 
-	/** 이 타일에만 추가로 더할 Yaw입니다. 브러시 Yaw와 합산됩니다. */
-	UPROPERTY(EditAnywhere, Category = "Transform")
-	float YawOffset = 0.0f;
-
 	/** 캔버스 셀에 그릴 색입니다. 액터에서 등록할 때 머티리얼 기본색으로 자동 채워집니다. */
 	UPROPERTY(EditAnywhere, Category = "Preview")
 	FLinearColor PreviewColor = FLinearColor(0.5f, 0.5f, 0.5f, 1.0f);
