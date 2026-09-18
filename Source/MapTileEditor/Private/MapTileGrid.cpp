@@ -96,6 +96,14 @@ FIntPoint FMapTileGrid::WorldToCell(const FVector& WorldLocation) const
 	return FIntPoint(FMath::RoundToInt(Local.X / Size), FMath::RoundToInt(Local.Y / Size));
 }
 
+FIntPoint FMapTileGrid::RotateFootprint(const FIntPoint& Footprint, float Yaw)
+{
+	// 90도 단위로 정규화합니다. 90·270도(홀수 분면)면 X·Y를 맞바꿉니다.
+	const int32 Quadrant = FMath::RoundToInt(Yaw / 90.0f) & 3;
+
+	return (Quadrant % 2 != 0) ? FIntPoint(Footprint.Y, Footprint.X) : Footprint;
+}
+
 void FMapTileGrid::EnumerateFootprint(const FIntPoint& Origin, const FIntPoint& Footprint, TArray<FIntPoint>& OutCells)
 {
 	const int32 SizeX = FMath::Max(1, Footprint.X);
@@ -230,8 +238,13 @@ int32 FMapTileGrid::RefreshFromLevel(UWorld* World)
 			const int32 TileIndex = Pal->FindTileIndexById(ParsedId);
 			if (Pal->Tiles.IsValidIndex(TileIndex))
 			{
-				Layer = Pal->Tiles[TileIndex].Layer;
-				Footprint = Pal->Tiles[TileIndex].GetClampedFootprint();
+				const FMapTileDef& ScannedDef = Pal->Tiles[TileIndex];
+				Layer = ScannedDef.Layer;
+
+				// 액터의 최종 회전에서 격자 회전을 빼면 배치 시 브러시 Yaw가 남습니다.
+				// PaintCell이 스폰할 때 쓰는 GetGridYaw() + BrushYaw의 역산입니다.
+				const float PlacementYaw = Actor->GetActorRotation().Yaw - GetGridYaw();
+				Footprint = RotateFootprint(ScannedDef.GetClampedFootprint(), PlacementYaw);
 			}
 		}
 		else
@@ -301,7 +314,7 @@ AActor* FMapTileGrid::SpawnTileActor(
 	SpawnParams.ObjectFlags |= RF_Transactional;
 
 	// 격자가 돌아가 있으면 배치되는 액터도 같은 방향을 기본으로 갖습니다.
-	const FRotator Rotation(0.0f, GetGridYaw() + Yaw + Def.YawOffset, 0.0f);
+	const FRotator Rotation(0.0f, GetGridYaw() + Yaw, 0.0f);
 	const FVector FinalLocation = Location + Def.PlacementOffset;
 
 	AActor* Spawned = nullptr;
@@ -433,7 +446,7 @@ void FMapTileGrid::RemovePlacementFromModel(const FIntPoint& AnyCell, EMapTileLa
 }
 
 bool FMapTileGrid::PaintCell(
-	UWorld* World, const FIntPoint& Cell, int32 TileIndex, float BrushYaw, bool bKeepExistingHeight)
+	UWorld* World, const FIntPoint& Cell, int32 TileIndex, float BrushYaw)
 {
 	UMapTilePalette* Pal = Palette.Get();
 	if (!World || !Pal || !Pal->Tiles.IsValidIndex(TileIndex))
@@ -448,56 +461,20 @@ bool FMapTileGrid::PaintCell(
 	}
 
 	const EMapTileLayer Layer = Def.Layer;
-	const FIntPoint Footprint = Def.GetClampedFootprint();
+	const FIntPoint Footprint = RotateFootprint(Def.GetClampedFootprint(), BrushYaw);
+
+	// 같은 레이어에서 점유 영역이 기존 배치와 하나라도 겹치면 아무것도 바꾸지 않고 거부합니다.
+	if (!IsFootprintClear(Cell, Footprint, Layer))
+	{
+		return false;
+	}
 
 	TArray<FIntPoint> Covered;
 	EnumerateFootprint(Cell, Footprint, Covered);
 
-	// 같은 레이어에서 겹치는 기존 배치를 먼저 걷어냅니다.
-	// 겹친 것이 여러 칸짜리면 그 배치 전체가 사라집니다.
-	float InheritedZ = TNumericLimits<float>::Lowest();
+	const FVector Location = FootprintCenterToWorld(Cell, Footprint);
 
-	// 지워지는 액터의 아웃라이너 폴더를 물려받아 레벨 정리를 유지합니다.
-	FName InheritedFolder = NAME_None;
-
-	for (const FIntPoint& Covering : Covered)
-	{
-		FMapTileCellStack* Stack = Cells.Find(Covering);
-		if (!Stack)
-		{
-			continue;
-		}
-
-		FMapTileCell& Existing = Stack->Get(Layer);
-		if (!Existing.bOccupied)
-		{
-			continue;
-		}
-
-		if (const AActor* ExistingActor = Existing.Actor.Get())
-		{
-			if (bKeepExistingHeight)
-			{
-				InheritedZ = FMath::Max(InheritedZ, ExistingActor->GetActorLocation().Z - Def.PlacementOffset.Z);
-			}
-
-			if (InheritedFolder.IsNone())
-			{
-				InheritedFolder = ExistingActor->GetFolderPath();
-			}
-		}
-
-		DestroyCellActors(World, Existing);
-		RemovePlacementFromModel(Covering, Layer);
-	}
-
-	FVector Location = FootprintCenterToWorld(Cell, Footprint);
-	if (bKeepExistingHeight && InheritedZ > TNumericLimits<float>::Lowest())
-	{
-		Location.Z = InheritedZ;
-	}
-
-	AActor* Spawned = SpawnTileActor(World, Def, Location, BrushYaw, InheritedFolder);
+	AActor* Spawned = SpawnTileActor(World, Def, Location, BrushYaw, NAME_None);
 	if (!Spawned)
 	{
 		return false;
@@ -515,6 +492,25 @@ bool FMapTileGrid::PaintCell(
 		Entry.bFixed = false;
 		Entry.Origin = Cell;
 		Entry.Footprint = Footprint;
+	}
+
+	return true;
+}
+
+bool FMapTileGrid::IsFootprintClear(const FIntPoint& Origin, const FIntPoint& Footprint, EMapTileLayer Layer) const
+{
+	TArray<FIntPoint> Covered;
+	EnumerateFootprint(Origin, Footprint, Covered);
+
+	for (const FIntPoint& Covering : Covered)
+	{
+		if (const FMapTileCellStack* Stack = Cells.Find(Covering))
+		{
+			if (Stack->Get(Layer).bOccupied)
+			{
+				return false;
+			}
+		}
 	}
 
 	return true;

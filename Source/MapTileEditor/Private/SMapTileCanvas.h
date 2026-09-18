@@ -54,6 +54,8 @@ DECLARE_DELEGATE_OneParam(FOnMapTileCellPicked, FIntPoint);
 DECLARE_DELEGATE_OneParam(FOnMapTileCellFocused, FIntPoint);
 DECLARE_DELEGATE(FOnMapTileRotateBrush);
 DECLARE_DELEGATE_RetVal_OneParam(FMapTileCellVisual, FGetMapTileCellVisual, FIntPoint);
+/** 이 칸 범위(Min~Max, 포함)에 지금 선택된 타일을 놓을 수 있는지 묻습니다. 호버·드래그 미리보기 색을 정하는 데 씁니다. */
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FCanPlaceRange, FIntPoint /*Min*/, FIntPoint /*Max*/);
 
 class SMapTileCanvas : public SCompoundWidget
 {
@@ -71,6 +73,7 @@ public:
 		SLATE_EVENT(FOnMapTileCellPicked, OnCellPicked)
 		SLATE_EVENT(FOnMapTileCellFocused, OnCellFocused)
 		SLATE_EVENT(FOnMapTileRotateBrush, OnRotateBrush)
+		SLATE_EVENT(FCanPlaceRange, CanPlaceRange)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -127,6 +130,7 @@ private:
 	FOnMapTileCellPicked OnCellPicked;
 	FOnMapTileCellFocused OnCellFocused;
 	FOnMapTileRotateBrush OnRotateBrush;
+	FCanPlaceRange CanPlaceRange;
 
 	/** 확대율 1.0에서의 셀 픽셀 크기입니다. */
 	float BaseCellPixels = 18.0f;

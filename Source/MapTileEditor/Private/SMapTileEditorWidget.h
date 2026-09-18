@@ -90,6 +90,8 @@ private:
 	EMapTileBrushMode GetBrushModeForCanvas() const;
 	/** 캔버스에 현재 선택된 타일의 점유 칸(Footprint)을 넘겨주는 어트리뷰트 게터입니다. */
 	FIntPoint GetBrushFootprintForCanvas() const;
+	/** 캔버스가 호버·드래그 범위 미리보기 색을 정할 때 묻는 콜백입니다. 범위가 비어 있으면 놓을 수 있습니다. */
+	bool CanPlaceRange(FIntPoint Min, FIntPoint Max) const;
 	ECheckBoxState IsBrushModeChecked(EMapTileBrushMode Mode) const;
 	void OnBrushModeChanged(ECheckBoxState NewState, EMapTileBrushMode Mode);
 	TOptional<float> GetCellSize() const;
@@ -146,8 +148,6 @@ private:
 	EMapTileBrushMode BrushMode = EMapTileBrushMode::Single;
 
 	float BrushYaw = 0.0f;
-
-	bool bKeepExistingHeight = true;
 
 	bool bLockViewportToSelection = false;
 
