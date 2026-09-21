@@ -1,3 +1,8 @@
+/*
+* [260916] 타일 위치 보정 버튼과 수동 보정 흐름을 추가합니다.
+* @date 2026-09-16
+*/
+
 #include "SMapTileEditorWidget.h"
 
 #include "MapTilePalette.h"
@@ -183,6 +188,16 @@ TSharedRef<SWidget> SMapTileEditorWidget::BuildToolbar()
 		.Padding(4.0f, 0.0f, 0.0f, 0.0f)
 		[
 			SNew(SButton)
+			.Text(LOCTEXT("CorrectLevel", "타일 보정"))
+			.ToolTipText(LOCTEXT("CorrectLevelTip", "현재 툴의 그리드 위치와 실제 타일 위치를 일치시킵니다."))
+			.OnClicked(this, &SMapTileEditorWidget::OnCorrectLevelClicked)
+		]
+
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(4.0f, 0.0f, 0.0f, 0.0f)
+		[
+			SNew(SButton)
 			.Text(LOCTEXT("ViewAll", "전체 보기"))
 			.ToolTipText(LOCTEXT("ViewAllTip", "배치된 타일이 모두 보이도록 캔버스를 맞춥니다."))
 			.OnClicked(this, &SMapTileEditorWidget::OnViewAllClicked)
@@ -231,6 +246,13 @@ FReply SMapTileEditorWidget::OnCreateNewPaletteClicked()
 FReply SMapTileEditorWidget::OnRefreshLevelClicked()
 {
 	RefreshFromLevel();
+
+	return FReply::Handled();
+}
+
+FReply SMapTileEditorWidget::OnCorrectLevelClicked()
+{
+	CorrectFromLevel();
 
 	return FReply::Handled();
 }
@@ -1230,6 +1252,30 @@ void SMapTileEditorWidget::RefreshFromLevel()
 
 	StatusText = FText::Format(
 		LOCTEXT("LoadedTiles", "현재 레벨의 고정 바닥 타일 {0}개를 불러왔습니다."), FText::AsNumber(LoadedCount));
+}
+
+void SMapTileEditorWidget::CorrectFromLevel()
+{
+	if (!Palette.IsValid())
+	{
+		Grid.Clear();
+		StatusText = LOCTEXT("NoPaletteStatus", "타일 팔레트를 선택하거나 새로 만드세요.");
+
+		return;
+	}
+
+	UWorld* World = GetEditorWorld();
+	if (!World)
+	{
+		Grid.Clear();
+		StatusText = LOCTEXT("NoWorld", "편집 중인 레벨을 찾지 못했습니다.");
+
+		return;
+	}
+
+	const FScopedTransaction Transaction(LOCTEXT("CorrectTilesFromToolTransaction", "맵 타일 위치 보정"));
+	Grid.CorrectTIlesFromTool(World);
+	StatusText = LOCTEXT("CorrectTiles", "현재 레벨의 툴 소유 타일 위치를 보정했습니다.");
 }
 
 void SMapTileEditorWidget::MoveViewportToCell(const FIntPoint& Cell) const
