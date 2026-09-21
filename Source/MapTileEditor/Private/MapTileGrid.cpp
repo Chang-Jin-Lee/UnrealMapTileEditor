@@ -242,9 +242,9 @@ int32 FMapTileGrid::RefreshFromLevel(UWorld* World)
 				const FMapTileDef& ScannedDef = Pal->Tiles[TileIndex];
 				Layer = ScannedDef.Layer;
 
-				// 액터의 최종 회전에서 격자 회전·타일 고유 보정을 빼면 배치 시 브러시 Yaw가 남습니다.
-				// PaintCell이 스폰할 때 쓰는 GetGridYaw() + BrushYaw + Def.YawOffset의 역산입니다.
-				const float PlacementYaw = Actor->GetActorRotation().Yaw - GetGridYaw() - ScannedDef.YawOffset;
+				// 액터의 최종 회전에서 격자 회전을 빼면 배치 시 브러시 Yaw가 남습니다.
+				// PaintCell이 스폰할 때 쓰는 GetGridYaw() + BrushYaw의 역산입니다.
+				const float PlacementYaw = Actor->GetActorRotation().Yaw - GetGridYaw();
 				Footprint = RotateFootprint(ScannedDef.GetClampedFootprint(), PlacementYaw);
 			}
 		}
@@ -367,7 +367,7 @@ AActor* FMapTileGrid::SpawnTileActor(
 	SpawnParams.ObjectFlags |= RF_Transactional;
 
 	// 격자가 돌아가 있으면 배치되는 액터도 같은 방향을 기본으로 갖습니다.
-	const FRotator Rotation(0.0f, GetGridYaw() + Yaw + Def.YawOffset, 0.0f);
+	const FRotator Rotation(0.0f, GetGridYaw() + Yaw, 0.0f);
 	const FVector FinalLocation = Location + Def.PlacementOffset;
 
 	AActor* Spawned = nullptr;

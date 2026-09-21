@@ -177,7 +177,7 @@ git clone https://github.com/Chang-Jin-Lee/UnrealMapTileEditor.git MapTileEditor
 | 스케일 | |
 | 충돌 프로파일 | 비워두면 액터 기본값. 원본과 다른 프로파일을 쓰면 충돌 거동이 바뀝니다 |
 | 위치 | 점유 영역 중심 + `PlacementOffset` |
-| Yaw 회전 | `GridYaw` + 브러시 Yaw + `YawOffset` |
+| Yaw 회전 | `GridYaw` + 브러시 Yaw |
 
 **아웃라이너 폴더**는 이렇게 정해집니다.
 
@@ -235,7 +235,7 @@ const FScopedTransaction Transaction(LOCTEXT("PaintTilesTransaction", "2D 맵 �
 | `Mesh` + `MaterialOverrides` | 스태틱 메시 배치 경로 |
 | `ActorClass` | 블루프린트/네이티브 액터 배치 경로. 지정되면 `Mesh` 대신 사용 |
 | `CollisionProfileName` | 비어 있으면 액터 기본값 |
-| `Scale` / `PlacementOffset` / `YawOffset` | 배치 트랜스폼 |
+| `Scale` / `PlacementOffset` | 배치 트랜스폼 |
 | `PreviewColor` | 캔버스 셀 색 (텍스처를 못 찾을 때 사용) |
 | `TileId` | 팔레트를 재정렬해도 레벨 배치와 연결이 끊기지 않게 하는 GUID |
 
